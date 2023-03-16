@@ -30,3 +30,4 @@ class Gpt {
   async function saveMessages () {} 
 }
 
+module.exports.Gpt = Gpt
