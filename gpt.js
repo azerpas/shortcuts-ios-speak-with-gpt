@@ -1,4 +1,4 @@
-const BASE_URL = "https://api.openai.com/"
+const BASE_URL = "https://api.openai.com"
 const MODEL = "gpt-3.5-turbo"
 
 class Gpt {
@@ -12,7 +12,7 @@ class Gpt {
     ]
   }
   
-  async function newMessage (message) {
+  async newMessage (message) {
     this.messages.push({role: 'user', content: message})
     let req = new Request(`${BASE_URL}/v1/chat/completions`)
     req.method = 'POST'
@@ -20,14 +20,14 @@ class Gpt {
       'Authorization': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json' 
     }
-    req.body = `{"model": "${MODEL}", "messages": JSON.stringify()}`
+    req.body = `{"model": "${MODEL}", "messages": ${JSON.stringify(this.messages)}}`
     let res = await req.loadJSON()
     let resMsg = res.choices[0].message
     this.messages.push(resMsg)
     return resMsg.content
   }
   
-  async function saveMessages () {} 
+  async saveMessages () {} 
 }
 
 module.exports.Gpt = Gpt
