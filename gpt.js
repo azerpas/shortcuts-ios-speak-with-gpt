@@ -22,12 +22,22 @@ class Gpt {
     }
     req.body = `{"model": "${MODEL}", "messages": ${JSON.stringify(this.messages)}}`
     let res = await req.loadJSON()
+    if (res.error) {
+      throw new GptError(`There was an error while processing the request to ChatGPT: ${res.error.message}`)
+    }
     let resMsg = res.choices[0].message
     this.messages.push(resMsg)
     return resMsg.content
   }
   
   async saveMessages () {} 
+}
+
+class GptError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'GptError';
+  }
 }
 
 module.exports.Gpt = Gpt
