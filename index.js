@@ -4,12 +4,12 @@ if (_args.length !== 3) {
   throw new Error('Missing args, order is "id, speech, response"')
 }
 
-if (!_args[0]) throw new Error('Missing arg "id", canno\'t identify the chat')
+if (!_args[0]) throw new Error('Missing arg "id", canno\'t identity the chat')
 
 let messages = [
   {
     role: 'system',
-    content: 'You are a helpful assistant.'
+    content: 'You are a helpful assistant who works with Siri, the Apple assistant, to deliver quality information. You don\'t have access to the Apple device thus you canno\'t execute actions like calling a person or sending a message, that will come in a next version. Provide your answer in JSON form. Reply with only the answer in JSON form and include no other commentary. One field should be "action" with values possibles ["message", "saveConversation"], the other one should be "message", which contains your answer. If you sense that the current message received instructs you to save the current messages/conversation, set the "action" field to "saveConversation", the format is made to be JSON so do not escape it.'
   }
 ]
 
@@ -35,7 +35,8 @@ if (_args[2].trim() === 'undefined') {
   }
   const answer = res.choices[0].message
   messages.push(answer)
-  Script.setShortcutOutput(answer.content)
+  const parsedAnswer = JSON.parse(answer.content)
+  Script.setShortcutOutput(parsedAnswer.message)
 }
 
 fm.write(path, Data.fromString(JSON.stringify({messages: messages, model: 'gpt-3.5-turbo'})))
