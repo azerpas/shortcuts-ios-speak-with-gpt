@@ -1,7 +1,7 @@
 const _args = args.plainTexts
 
-if (_args.length !== 3) {
-  throw new Error('Missing args, order is "id, speech, response"')
+if (_args.length < 3) {
+  throw new Error('Missing args, order is "id, speech, response, action"')
 }
 
 if (!_args[0]) throw new Error('Missing arg "id", canno\'t identity the chat')
@@ -9,7 +9,7 @@ if (!_args[0]) throw new Error('Missing arg "id", canno\'t identity the chat')
 let messages = [
   {
     role: 'system',
-    content: 'You are a helpful assistant who works with Siri, the Apple assistant, to deliver quality information. You don\'t have access to the Apple device thus you canno\'t execute actions like calling a person or sending a message, that will come in a next version. Provide your answer in JSON form. Reply with only the answer in JSON form and include no other commentary. One field should be "action" with values possibles ["message", "saveConversation"], the other one should be "message", which contains your answer. If you sense that the current message received instructs you to save the current messages/conversation, set the "action" field to "saveConversation". If you sense that the current message received instructs you to put the conversation on pause or take a break, set the "action" field to "pause".'
+    content: 'You are a helpful assistant who works with Siri, the Apple assistant, to deliver quality information. You don\'t have access to the Apple device thus you canno\'t execute actions like calling a person or sending a message, that will come in a next version. Provide your answer in JSON form. Reply with only the answer in JSON form and include no other commentary. One field should be "action" with values possibles ["message", "saveConversation", "pause"], the other one should be "message", which contains your answer. If you sense that the current message received instructs you to save the current messages/conversation, set the "action" field to "saveConversation". If you sense that the current message received instructs you to put the conversation on pause or take a break, set the "action" field to "pause".'
   }
 ]
 
@@ -22,11 +22,11 @@ if(fm.fileExists(path)) {
 }
 
 // Check if we're receiving a ChatGPT answer or a User speech
-if (_args[2].trim() === 'undefined') {
+if (_args[2].trim() === 'undefined' && _args[1] !== 'undefined') {
   // Push User speech
   messages.push({role: 'user', content: _args[1]})
   Script.setShortcutOutput(JSON.stringify({messages: messages, model: 'gpt-3.5-turbo'}))
-} else {
+} else if (_args[2].trim() !== 'undefined' && _args[1] === 'undefined') {
   // Parse and push ChatGPT answer
   const res = JSON.parse(_args[2])
   if (res.error) {
@@ -36,22 +36,31 @@ if (_args[2].trim() === 'undefined') {
   const answer = res.choices[0].message
   messages.push(answer)
   const parsedAnswer = JSON.parse(answer.content)
-  switch (parsedAnswer.action) {
+  switch (parsedAnswer.action.trim()) {
     case "pause":
-      // Display messages as a table
-      const table = new UITable()
-      table.showSeparators = true
-      // Add a row for each message
-      for (const msg of messages) {
-        const row = new UITableRow()
-        const rawMessage = JSON.parse(msg.content).message
-        row.addText(msg.role === 'user' ? '👤' : '🤖', rawMessage)
-      }
-      await table.present()
       Script.setShortcutOutput('[PAUSE]')
-    default:
-      Script.setShortcutOutput(parsedAnswer.message)
       break
+    default:
+      try {
+        Script.setShortcutOutput(parsedAnswer.message)
+      } catch(e){
+        throw new Error(`Could not set shortcut output '${parsedAnswer.toString()}', ${e.message}`)
+      }
+      break
+  }
+} else if (_args[3].trim() !== undefined) {
+  if (_args[3].trim() === "pause") {
+    // Display messages as a table
+    const table = new UITable()
+    table.showSeparators = true
+    // Add a row for each message
+    for (let i = 1; i < messages.length; i++) {
+      const row = new UITableRow()
+      const rawMessage = messages[i].content.includes("{") ? JSON.parse(messages[i].content).message : messages[i].content
+      row.addText(messages[i].role === 'user' ? '👤' : '🤖', rawMessage)
+      table.addRow(row)
+    }
+    await table.present()
   }
 }
 
