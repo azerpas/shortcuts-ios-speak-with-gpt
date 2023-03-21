@@ -4,7 +4,9 @@ if (_args.length < 3) {
   throw new Error('Missing args, order is "id, speech, response, action"')
 }
 
-if (!_args[0]) throw new Error('Missing arg "id", canno\'t identity the chat')
+if (!_args[0]) throw new Error('Missing arg "id", canno\'t identify the chat')
+
+const [id, speech, response, action] = _args
 
 let messages = [
   {
@@ -14,28 +16,46 @@ let messages = [
 ]
 
 let fm = FileManager.iCloud()
-let path = fm.joinPath(fm.documentsDirectory(), `${_args[0]}.json`)
+let path = fm.joinPath(fm.documentsDirectory(), `${id}.json`)
 if(fm.fileExists(path)) {
   await fm.downloadFileFromiCloud(path)
   const output = JSON.parse(Data.fromFile(path).toRawString())
   messages = output.messages
 }
 
-// Check if we're receiving a ChatGPT answer or a User speech
-if (_args[2].trim() === 'undefined' && _args[1] !== 'undefined') {
-  // Push User speech
-  messages.push({role: 'user', content: _args[1]})
-  Script.setShortcutOutput(JSON.stringify({messages: messages, model: 'gpt-3.5-turbo'}))
-} else if (_args[2].trim() !== 'undefined' && _args[1] === 'undefined') {
-  // Parse and push ChatGPT answer
-  const res = JSON.parse(_args[2])
+async function pause() {
+  // Display messages as a table
+  const table = new UITable()
+  table.showSeparators = true
+  // Add a row for each message
+  for (let i = 1; i < messages.length; i++) {
+    const row = new UITableRow()
+    const rawMessage = messages[i].content.includes("{") ? JSON.parse(messages[i].content).message : messages[i].content
+    row.addText(messages[i].role === 'user' ? '👤' : '🤖', rawMessage)
+    table.addRow(row)
+  }
+  await table.present()
+}
+
+async function parse(body) {
+  const res = JSON.parse(body)
   if (res.error) {
     Script.setShortcutOutput(`There was an error while processing the request to ChatGPT: ${res.error.message}`)
     Script.complete()
   }
   const answer = res.choices[0].message
   messages.push(answer)
-  const parsedAnswer = JSON.parse(answer.content)
+  return JSON.parse(answer.content)
+}
+
+// Check if we're receiving a ChatGPT answer or a User speech
+if (response.trim() === 'undefined' && speech.trim() !== 'undefined') {
+  // Push User speech
+  messages.push({role: 'user', content: speech})
+  Script.setShortcutOutput(JSON.stringify({messages: messages, model: 'gpt-3.5-turbo'}))
+} else if (response.trim() !== 'undefined' && speech.trim() === 'undefined') {
+  // Parse and push ChatGPT answer
+  const parsedAnswer = await parse(response)
   switch (parsedAnswer.action.trim()) {
     case "pause":
       Script.setShortcutOutput('[PAUSE]')
@@ -48,19 +68,9 @@ if (_args[2].trim() === 'undefined' && _args[1] !== 'undefined') {
       }
       break
   }
-} else if (_args[3].trim() !== undefined) {
-  if (_args[3].trim() === "pause") {
-    // Display messages as a table
-    const table = new UITable()
-    table.showSeparators = true
-    // Add a row for each message
-    for (let i = 1; i < messages.length; i++) {
-      const row = new UITableRow()
-      const rawMessage = messages[i].content.includes("{") ? JSON.parse(messages[i].content).message : messages[i].content
-      row.addText(messages[i].role === 'user' ? '👤' : '🤖', rawMessage)
-      table.addRow(row)
-    }
-    await table.present()
+} else if (action !== undefined) {
+  if (action.trim() === "pause") {
+    await pause()
   }
 }
 
